@@ -9,6 +9,10 @@ Mute or solo individual apps' audio from the menu bar (macOS) or system tray (Wi
 
 Download the latest `minSolo-<version>-universal.pkg` from [Releases](https://github.com/cbkow/minSolo/releases) and open it. The installer is signed and notarized; it puts minSolo.app in /Applications. On first mute, allow **System Audio Recording** when macOS asks.
 
+## Install (Windows)
+
+Download `minSolo-<version>-Setup-x64.exe` from [Releases](https://github.com/cbkow/minSolo/releases) and run it. The first releases are not code-signed, so SmartScreen shows "Windows protected your PC": choose **More info → Run anyway**. The installer puts one exe under Program Files, with an optional "start when you sign in" task. A Microsoft Store listing is prepared (`win/app/msix/`) and will follow.
+
 ## Layout
 
 | Path | What |
@@ -51,6 +55,7 @@ cd win\app
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build                          # build\minSolo.exe
 cmake --build build --target minsolo_msix    # dist\minSolo-<version>-win64.msix (unsigned = Store upload)
+installer\build-setup.cmd                    # dist\minSolo-<version>-Setup-x64.exe (Inno Setup 6, unsigned)
 ```
 
 Set `MINSOLO_SIGNING_PFX` (absolute path), `MINSOLO_SIGNING_PASSWORD` and `MINSOLO_TIMESTAMP_URL` before the `minsolo_msix` target to get a signed `-sideload.msix` instead; the PFX subject must equal the manifest Publisher. Signing has to run on the logged-on desktop, not over SSH. See `win/app/README.md` for how the app works and its command-line switches.
