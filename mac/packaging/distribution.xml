@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- productbuild Distribution for the minSolo installer. @VERSION@ is
+     substituted by build-pkg.sh from the built app. -->
+<installer-gui-script minSpecVersion="2">
+    <title>minSolo @VERSION@</title>
+    <organization>com.bialkowski</organization>
+    <domains enable_localSystem="true"/>
+    <options customize="never" require-scripts="true" rootVolumeOnly="true" hostArchitectures="arm64,x86_64"/>
+    <allowed-os-versions>
+        <os-version min="14.2"/>
+    </allowed-os-versions>
+    <welcome file="welcome.txt" mime-type="text/plain"/>
+    <license file="LICENSE" mime-type="text/plain"/>
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.bialkowski.minsolo"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="com.bialkowski.minsolo" visible="false">
+        <pkg-ref id="com.bialkowski.minsolo"/>
+    </choice>
+    <pkg-ref id="com.bialkowski.minsolo" version="@VERSION@" onConclusion="none">minSolo-app.pkg</pkg-ref>
+</installer-gui-script>

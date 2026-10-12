@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 @MainActor
@@ -67,6 +68,9 @@ struct ContentView: View {
     @ObservedObject var model: Model
     @ObservedObject var monitor: ProcessMonitor
     @ObservedObject var engine: TapEngine
+    @AppStorage("showAllApps") private var showAllApps = false
+    @AppStorage(TapEngine.rememberMutesKey) private var rememberMutes = true
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     init(model: Model) {
         self.model = model
@@ -77,10 +81,10 @@ struct ContentView: View {
     /// Apps playing audio now, plus any that are muted/soloed even if silent or quit.
     private var rows: [AudioApp] {
         let live = monitor.apps
-        var out = live.filter { $0.isPlaying || engine.isMuted($0.id) || engine.isSoloed($0.id) }
+        var out = live.filter { $0.isPlaying || engine.isMuted($0.id) || engine.isSoloed($0.id) || (showAllApps && $0.isApp) }
         let shown = Set(out.map(\.id))
         for key in engine.muted.union(engine.soloed) where !shown.contains(key) {
-            out.append(AudioApp(id: key, name: engine.names[key] ?? key, pids: [], objectIDs: [], isPlaying: false))
+            out.append(AudioApp(id: key, name: engine.names[key] ?? key, pids: [], objectIDs: [], isPlaying: false, isApp: true))
         }
         return out.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
@@ -88,7 +92,7 @@ struct ContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if rows.isEmpty {
-                Text("No apps are playing audio")
+                Text(showAllApps ? "No apps are using audio" : "No apps are playing audio")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 44)
             } else {
@@ -101,8 +105,22 @@ struct ContentView: View {
                 Button("Clear all") { engine.clearAll() }
                     .disabled(engine.muted.isEmpty && engine.soloed.isEmpty)
                 Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }
-                    .keyboardShortcut("q")
+                Menu {
+                    Toggle("Show all audio apps", isOn: $showAllApps)
+                    Toggle("Remember mutes", isOn: $rememberMutes)
+                        .onChange(of: rememberMutes) { _, v in engine.rememberMutes = v }
+                    Toggle("Launch at login", isOn: $launchAtLogin)
+                        .onChange(of: launchAtLogin) { _, v in setLaunchAtLogin(v) }
+                    Divider()
+                    Text("minSolo \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")")
+                    Button("Quit minSolo") { NSApplication.shared.terminate(nil) }
+                        .keyboardShortcut("q")
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
@@ -110,6 +128,15 @@ struct ContentView: View {
         }
         .padding(12)
         .frame(width: 300)
+    }
+}
+
+private func setLaunchAtLogin(_ on: Bool) {
+    do {
+        if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+        log("launch at login \(on ? "on" : "off") (\(SMAppService.mainApp.status.rawValue))")
+    } catch {
+        log("launch at login failed: \(error.localizedDescription)")
     }
 }
 

@@ -17,9 +17,10 @@ struct AudioApp: Identifiable, Equatable {
     let pids: [pid_t]
     let objectIDs: [AudioObjectID]
     let isPlaying: Bool       // any process has output running
+    let isApp: Bool           // owned by a regular or accessory app (not a daemon/CLI)
 
     static func == (a: AudioApp, b: AudioApp) -> Bool {
-        a.id == b.id && a.objectIDs == b.objectIDs && a.isPlaying == b.isPlaying && a.name == b.name
+        a.id == b.id && a.objectIDs == b.objectIDs && a.isPlaying == b.isPlaying && a.name == b.name && a.isApp == b.isApp
     }
 }
 
@@ -44,37 +45,36 @@ func audioProcesses() -> [AudioProc] {
 }
 
 /// Group key + display name for a process: the responsible app if there is one, else the process itself.
-private func owner(of p: AudioProc) -> (key: String, name: String) {
+private func owner(of p: AudioProc) -> (key: String, name: String, isApp: Bool) {
     var pid = p.pid
     if let f = responsiblePID { let r = f(p.pid); if r > 0 { pid = r } }
-    if let app = NSRunningApplication(processIdentifier: pid), let bid = app.bundleIdentifier {
-        return (bid, app.localizedName ?? bid)
-    }
-    if let app = NSRunningApplication(processIdentifier: p.pid), let bid = app.bundleIdentifier {
-        return (bid, app.localizedName ?? bid)
+    for candidate in [pid, p.pid] {
+        if let app = NSRunningApplication(processIdentifier: candidate), let bid = app.bundleIdentifier {
+            return (bid, app.localizedName ?? bid, app.activationPolicy != .prohibited)
+        }
     }
     if !p.bundleID.isEmpty {
         // "com.google.Chrome.helper" → "com.google.Chrome"
         let key = p.bundleID.hasSuffix(".helper") ? String(p.bundleID.dropLast(7)) : p.bundleID
-        return (key, key)
+        return (key, key, false)
     }
-    return ("pid:\(p.pid)", processName(p.pid))
+    return ("pid:\(p.pid)", processName(p.pid), false)
 }
 
 func groupedAudioApps() -> [AudioApp] {
     let me = getpid()
-    var groups: [String: (name: String, pids: [pid_t], ids: [AudioObjectID], playing: Bool)] = [:]
+    var groups: [String: (name: String, pids: [pid_t], ids: [AudioObjectID], playing: Bool, isApp: Bool)] = [:]
     var order: [String] = []
     for p in audioProcesses() where p.pid != me {
         let o = owner(of: p)
-        if groups[o.key] == nil { groups[o.key] = (o.name, [], [], false); order.append(o.key) }
+        if groups[o.key] == nil { groups[o.key] = (o.name, [], [], false, o.isApp); order.append(o.key) }
         groups[o.key]!.pids.append(p.pid)
         groups[o.key]!.ids.append(p.objectID)
         groups[o.key]!.playing = groups[o.key]!.playing || p.runningOutput
     }
     return order.map { k in
         let g = groups[k]!
-        return AudioApp(id: k, name: g.name, pids: g.pids, objectIDs: g.ids.sorted(), isPlaying: g.playing)
+        return AudioApp(id: k, name: g.name, pids: g.pids, objectIDs: g.ids.sorted(), isPlaying: g.playing, isApp: g.isApp)
     }
 }
 

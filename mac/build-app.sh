@@ -3,13 +3,19 @@
 #   ./build-app.sh            → build/minSolo.app
 #   ./build-app.sh --run      → also (re)launch it
 #   VERSION=0.1.0 ./build-app.sh
+#   UNIVERSAL=1 ./build-app.sh   → arm64 + x86_64 (what build-pkg.sh uses)
 set -euo pipefail
 cd "$(dirname "$0")"
-VERSION="${VERSION:-0.0.1}"
+VERSION="${VERSION:-0.1.0}"
 APP=build/minSolo.app
 
-swift build -c release 2>&1 | grep -E 'error|warning: unre|Compiling|Build complete' | tail -5
-BIN=.build/release/minSolo
+if [[ "${UNIVERSAL:-0}" == 1 ]]; then
+  swift build -c release --arch arm64 --arch x86_64 2>&1 | grep -E 'error|Build complete' | tail -3
+  BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/minSolo"
+else
+  swift build -c release 2>&1 | grep -E 'error|Build complete' | tail -3
+  BIN=.build/release/minSolo
+fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"

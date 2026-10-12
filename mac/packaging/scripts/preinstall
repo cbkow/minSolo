@@ -1,0 +1,8 @@
+#!/bin/bash
+# minSolo installer — preinstall (root). A running copy would keep the old
+# binary mapped and the pkg would install beside a live process; ask it to
+# quit (it releases its taps on SIGTERM), then replace the app whole.
+pkill -x minSolo 2>/dev/null || true
+sleep 1
+rm -rf "/Applications/minSolo.app"
+exit 0

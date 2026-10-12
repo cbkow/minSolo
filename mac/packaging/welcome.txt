@@ -1,0 +1,9 @@
+minSolo mutes or solos individual apps' audio from the menu bar, with zero
+added latency for everything you can still hear.
+
+This installs minSolo.app in /Applications. On first use macOS asks for
+System Audio Recording permission: minSolo uses Core Audio process taps to
+drop a muted app out of the mix, and the tapped audio is discarded at once.
+Nothing is recorded or sent anywhere.
+
+Requires macOS 14.2 or later.

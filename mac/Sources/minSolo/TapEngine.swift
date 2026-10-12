@@ -125,8 +125,23 @@ final class TapEngine: ObservableObject {
     private var soloTap: TapHandle?
     private var apps: [String: AudioApp] = [:]
 
+    private let defaults = UserDefaults.standard
+    static let rememberMutesKey = "rememberMutes"
+    private static let mutedAppsKey = "mutedApps"
+    private static let appNamesKey = "appNames"
+
+    var rememberMutes: Bool {
+        get { defaults.object(forKey: Self.rememberMutesKey) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Self.rememberMutesKey); persist() }
+    }
+
     init() {
         sweepLeftovers()
+        if rememberMutes {
+            muted = Set(defaults.stringArray(forKey: Self.mutedAppsKey) ?? [])
+            names = defaults.dictionary(forKey: Self.appNamesKey) as? [String: String] ?? [:]
+            if !muted.isEmpty { log("restored mutes: \(muted.sorted().joined(separator: ", "))") }
+        }
         listen(systemObject, kAudioHardwarePropertyDefaultOutputDevice) { [weak self] in
             guard let self else { return }
             log("default output device changed")
@@ -140,7 +155,7 @@ final class TapEngine: ObservableObject {
 
     func setMuted(_ key: String, _ on: Bool) {
         if on { muted.insert(key); soloed.remove(key) } else { muted.remove(key) }
-        reconcile()
+        reconcile(); persist()
     }
 
     func setSoloed(_ key: String, _ on: Bool) {
@@ -150,7 +165,18 @@ final class TapEngine: ObservableObject {
 
     func clearAll() {
         muted.removeAll(); soloed.removeAll()
-        reconcile()
+        reconcile(); persist()
+    }
+
+    /// Mutes (never solos) survive a relaunch when "Remember mutes" is on.
+    private func persist() {
+        if rememberMutes {
+            defaults.set(muted.sorted(), forKey: Self.mutedAppsKey)
+            defaults.set(names.filter { muted.contains($0.key) }, forKey: Self.appNamesKey)
+        } else {
+            defaults.removeObject(forKey: Self.mutedAppsKey)
+            defaults.removeObject(forKey: Self.appNamesKey)
+        }
     }
 
     func update(apps list: [AudioApp]) {
