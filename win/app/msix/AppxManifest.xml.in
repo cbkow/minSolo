@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AppxManifest.xml.in — CMake-substituted MSIX package manifest (configure_file @ONLY).
+    @MINSOLO_MSIX_VERSION@    PROJECT_VERSION padded to 4 components
+    @MINSOLO_MSIX_IDENTITY@   Store-bound identity name (reserved in Partner Center)
+    @MINSOLO_MSIX_PUBLISHER@  Store-bound publisher CN (must match Partner Center / the sideload cert)
+    @MINSOLO_MSIX_PUBLISHER_DISPLAY_NAME@
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap5 desktop rescap">
+
+  <Identity
+    Name="@MINSOLO_MSIX_IDENTITY@"
+    Version="@MINSOLO_MSIX_VERSION@"
+    Publisher="@MINSOLO_MSIX_PUBLISHER@"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>minSolo</DisplayName>
+    <PublisherDisplayName>@MINSOLO_MSIX_PUBLISHER_DISPLAY_NAME@</PublisherDisplayName>
+    <Logo>images\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="minSolo" Executable="minSolo.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="minSolo"
+        Description="Mute or solo individual apps' audio from the system tray"
+        BackgroundColor="transparent"
+        Square150x150Logo="images\Square150x150Logo.png"
+        Square44x44Logo="images\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="images\Wide310x150Logo.png" />
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- Launch at login: a startup task the user enables in Settings > Apps > Startup.
+             Startup tasks carry no arguments, so the app starts the same way as from the Start menu. -->
+        <desktop:Extension Category="windows.startupTask" Executable="minSolo.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="minSoloStartup" Enabled="false" DisplayName="minSolo" />
+        </desktop:Extension>
+
+        <!-- Execution alias: "minSolo" with a mute/solo switch from any terminal reaches the running instance. -->
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias>
+            <uap5:ExecutionAlias Alias="minSolo.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+</Package>

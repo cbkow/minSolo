@@ -3,7 +3,7 @@
 Mute or solo individual apps' audio from the menu bar (macOS) or system tray (Windows), with zero added latency for everything you can still hear.
 
 - **macOS 14.2+:** Core Audio process taps. A muted app is dropped from the mix; every other app keeps its direct path to the hardware. Nothing is captured and played back.
-- **Windows 10 1809+ (planned):** WASAPI per-app audio sessions, muted inside the Windows audio engine.
+- **Windows 10 1809+:** WASAPI per-app audio sessions, muted inside the Windows audio engine. System tray app.
 
 ## Install (macOS)
 
@@ -15,6 +15,8 @@ Download the latest `minSolo-<version>-universal.pkg` from [Releases](https://gi
 |---|---|
 | `mac/` | The macOS app: Swift Package, SwiftUI `MenuBarExtra`, `build-app.sh` builds + signs `build/minSolo.app` |
 | `spike/` | The signed CLI used to answer the Core Audio questions (`spike/README.md` has the findings) |
+| `win/app/` | The Windows app: C++/Win32, CMake, `msix/` holds the Store manifest, tiles and packaging script |
+| `win/spike/` | The WASAPI session CLI used to answer the Windows questions (`win/spike/README.md`) |
 | `assets/icons/` | The mark, as SVG for macOS (transparent) and Windows (dark tile) |
 
 ## Build (macOS)
@@ -39,6 +41,19 @@ Same flow as the sister repos: everything is a script under `mac/packaging/`, no
 spctl --assess --type install -vv dist/minSolo-<version>-universal.pkg
 xcrun stapler validate /Applications/minSolo.app
 ```
+
+## Build (Windows)
+
+In a Visual Studio developer shell:
+
+```powershell
+cd win\app
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build                          # build\minSolo.exe
+cmake --build build --target minsolo_msix    # dist\minSolo-<version>-win64.msix (unsigned = Store upload)
+```
+
+Set `MINSOLO_SIGNING_PFX` (absolute path), `MINSOLO_SIGNING_PASSWORD` and `MINSOLO_TIMESTAMP_URL` before the `minsolo_msix` target to get a signed `-sideload.msix` instead; the PFX subject must equal the manifest Publisher. Signing has to run on the logged-on desktop, not over SSH. See `win/app/README.md` for how the app works and its command-line switches.
 
 ## Settings
 
