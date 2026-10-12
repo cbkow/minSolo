@@ -227,6 +227,10 @@ void flyoutInit(HINSTANCE inst) {
 
 void flyoutToggle() {
     if (IsWindowVisible(g_fly)) { flyoutClose(); return; }
+    flyoutShow();
+}
+
+void flyoutShow() {
     rebuildRows(); g_hover = -1;
     place();
     ShowWindow(g_fly, SW_SHOW);

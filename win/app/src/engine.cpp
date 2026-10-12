@@ -146,8 +146,14 @@ std::vector<AppEntry> Engine::apps(const std::vector<SessionInfo>& sessions) con
     std::vector<AppEntry> out;
     for (auto& [k, e] : m)
         if (e.active || showAll || muted.count(k) || soloed.count(k)) out.push_back(e);
-    for (auto& k : muted) if (!m.count(k)) { AppEntry e; e.exe = k; auto it = names.find(k); e.name = it != names.end() ? it->second : k; out.push_back(e); }
-    for (auto& k : soloed) if (!m.count(k)) { AppEntry e; e.exe = k; auto it = names.find(k); e.name = it != names.end() ? it->second : k; out.push_back(e); }
+    auto remembered = [&](const std::wstring& k) {
+        AppEntry e; e.exe = k;
+        auto it = names.find(k);
+        e.name = it != names.end() ? it->second : SessionWatcher::friendlyName(k, L"");   // "chrome.exe" → "Chrome"
+        out.push_back(e);
+    };
+    for (auto& k : muted) if (!m.count(k)) remembered(k);
+    for (auto& k : soloed) if (!m.count(k)) remembered(k);
     std::sort(out.begin(), out.end(), [](const AppEntry& a, const AppEntry& b) { return _wcsicmp(a.name.c_str(), b.name.c_str()) < 0; });
     return out;
 }

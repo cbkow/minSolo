@@ -101,7 +101,7 @@ static bool applyCommand(const std::wstring& verb, const std::wstring& exe) {
     else if (verb == L"--unsolo") g_engine.setSoloed(e, false);
     else if (verb == L"--clear") g_engine.clearAll();
     else if (verb == L"--quit") { quitApp(); return true; }
-    else if (verb == L"--show") { flyoutToggle(); return true; }
+    else if (verb == L"--show") { flyoutShow(); return true; }
     else return false;
     logLine(L"command " + verb + L" " + e);
     refresh();
