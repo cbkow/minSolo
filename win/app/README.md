@@ -10,9 +10,18 @@ In a Visual Studio developer shell (VS 2022/2026, Ninja):
 
 ```powershell
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-build\minSolo.exe
+cmake --build build                          # build\minSolo.exe (static CRT, no redistributable)
+installer\build-setup.cmd                    # ..\..\dist\minSolo-<version>-Setup-x64.exe (Inno Setup 6)
+cmake --build build --target minsolo_msix    # ..\..\dist\minSolo-<version>-win64.msix (unsigned = Store upload)
 ```
+
+The installer is the release channel for now and is unsigned. For a signed
+sideload MSIX set `MINSOLO_SIGNING_PFX` (absolute path), optionally
+`MINSOLO_SIGNING_PASSWORD` and `MINSOLO_TIMESTAMP_URL`, before the
+`minsolo_msix` target; the PFX subject must equal the manifest Publisher, and
+signing must run on the logged-on desktop, not over SSH. Icons and Store
+tiles are rendered from `../../assets/icons/minsoloWIN.svg` by
+`../tools/make-ico.swift` and `../tools/make-tiles.swift`.
 
 ## Use
 
