@@ -10,8 +10,10 @@
 struct AppEntry {
     std::wstring exe;        // key
     std::wstring name;       // friendly name
+    std::wstring exePath;    // for the icon
     bool active = false;     // any session active (playing)
     int sessions = 0;
+    bool operator==(const AppEntry& o) const { return exe == o.exe && name == o.name && active == o.active && sessions == o.sessions; }
 };
 
 /// Mute/solo state, applied to live sessions. Only sessions minSolo muted are ever unmuted by it;

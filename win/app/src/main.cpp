@@ -2,14 +2,17 @@
 //
 //   minSolo.exe                       run (single instance; a second launch just focuses nothing and exits)
 //   minSolo.exe --mute <exe>          send a command to the running instance (or apply at startup):
-//              --unmute <exe> | --solo <exe> | --unsolo <exe> | --clear | --quit
+//              --unmute <exe> | --solo <exe> | --unsolo <exe> | --clear | --quit | --show (open the flyout)
 #include <windows.h>
 #include <shellapi.h>
 #include <shlwapi.h>
 #include <appmodel.h>
 #include <string>
 #include <vector>
+#include <windowsx.h>
+#include "app.h"
 #include "engine.h"
+#include "flyout.h"
 #include "log.h"
 #include "resource.h"
 #include "sessions.h"
@@ -19,15 +22,14 @@ static const wchar_t* kClass = L"minSoloTray";
 static const UINT WM_TRAY = WM_APP + 1;
 static const UINT WM_REFRESH = WM_APP + 2;     // endpoints changed / new session: refresh on the UI thread
 static const UINT kTimer = 1;
-enum : UINT { ID_CLEAR = 1, ID_SHOWALL, ID_REMEMBER, ID_SOLOSYS, ID_STARTUP, ID_QUIT, ID_ABOUT, ID_APP_BASE = 1000 };
+enum : UINT { ID_CLEAR = 1, ID_SHOWALL, ID_REMEMBER, ID_SOLOSYS, ID_STARTUP, ID_QUIT, ID_ABOUT };
 
-static HWND g_hwnd;
-static SessionWatcher g_watcher;
-static Engine g_engine;
-static std::vector<AppEntry> g_menuApps;
+HWND g_hwnd;
+SessionWatcher g_watcher;
+Engine g_engine;
 static UINT g_taskbarCreated;
 
-static void refresh() {
+void refresh() {
     auto sessions = g_watcher.snapshot();
     g_engine.apply(sessions);
 }
@@ -60,59 +62,34 @@ static void trayAdd() {
 }
 static void trayRemove() { NOTIFYICONDATAW nid{}; nid.cbSize = sizeof(nid); nid.hWnd = g_hwnd; nid.uID = 1; Shell_NotifyIconW(NIM_DELETE, &nid); }
 
-static void showMenu() {
-    auto sessions = g_watcher.snapshot();
-    g_engine.apply(sessions);
-    g_menuApps = g_engine.apps(sessions);
-    HMENU menu = CreatePopupMenu();
-    if (g_menuApps.empty()) AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, g_engine.showAll ? L"No apps are using audio" : L"No apps are playing audio");
-    for (size_t i = 0; i < g_menuApps.size(); ++i) {
-        auto& a = g_menuApps[i];
-        HMENU sub = CreatePopupMenu();
-        AppendMenuW(sub, MF_STRING | (g_engine.isMuted(a.exe) ? MF_CHECKED : 0), ID_APP_BASE + (UINT)i * 2, L"Mute");
-        AppendMenuW(sub, MF_STRING | (g_engine.isSoloed(a.exe) ? MF_CHECKED : 0), ID_APP_BASE + (UINT)i * 2 + 1, L"Solo");
-        std::wstring label = a.name;
-        if (g_engine.isMuted(a.exe)) label += L"   [M]"; else if (g_engine.isSoloed(a.exe)) label += L"   [S]";
-        if (a.sessions == 0) label += L"   (not running)"; else if (!a.active) label += L"   (silent)";
-        AppendMenuW(menu, MF_POPUP, (UINT_PTR)sub, label.c_str());
-    }
-    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING | ((g_engine.muted.empty() && g_engine.soloed.empty()) ? MF_GRAYED : 0), ID_CLEAR, L"Clear all");
-    HMENU settings = CreatePopupMenu();
-    AppendMenuW(settings, MF_STRING | (g_engine.showAll ? MF_CHECKED : 0), ID_SHOWALL, L"Show all audio apps");
-    AppendMenuW(settings, MF_STRING | (g_engine.rememberMutes ? MF_CHECKED : 0), ID_REMEMBER, L"Remember mutes");
-    AppendMenuW(settings, MF_STRING | (g_engine.soloMutesSystem ? MF_CHECKED : 0), ID_SOLOSYS, L"Solo also mutes system sounds");
-    if (!packaged()) AppendMenuW(settings, MF_STRING | (startupEnabled() ? MF_CHECKED : 0), ID_STARTUP, L"Launch at login");
-    AppendMenuW(settings, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(settings, MF_STRING | MF_GRAYED, ID_ABOUT, (L"minSolo " MINSOLO_VERSION_WSTR));
-    AppendMenuW(menu, MF_POPUP, (UINT_PTR)settings, L"Settings");
-    AppendMenuW(menu, MF_STRING, ID_QUIT, L"Quit minSolo");
+void quitApp() { PostMessageW(g_hwnd, WM_CLOSE, 0, 0); }
 
-    POINT pt; GetCursorPos(&pt);
-    SetForegroundWindow(g_hwnd);   // required, or the menu does not dismiss on click-away
-    TrackPopupMenuEx(menu, TPM_LEFTALIGN | TPM_BOTTOMALIGN | TPM_RIGHTBUTTON, pt.x, pt.y, g_hwnd, nullptr);
-    PostMessageW(g_hwnd, WM_NULL, 0, 0);
-    DestroyMenu(menu);
-}
-
-static void command(UINT id) {
+static void settingsCommand(UINT id) {
     switch (id) {
     case ID_CLEAR: g_engine.clearAll(); break;
     case ID_SHOWALL: g_engine.showAll = !g_engine.showAll; g_engine.save(); break;
     case ID_REMEMBER: g_engine.rememberMutes = !g_engine.rememberMutes; g_engine.save(); break;
     case ID_SOLOSYS: g_engine.soloMutesSystem = !g_engine.soloMutesSystem; g_engine.save(); break;
     case ID_STARTUP: setStartup(!startupEnabled()); break;
-    case ID_QUIT: PostMessageW(g_hwnd, WM_CLOSE, 0, 0); return;
-    default:
-        if (id >= ID_APP_BASE) {
-            size_t i = (id - ID_APP_BASE) / 2; bool solo = (id - ID_APP_BASE) % 2;
-            if (i < g_menuApps.size()) {
-                auto& exe = g_menuApps[i].exe;
-                if (solo) g_engine.setSoloed(exe, !g_engine.isSoloed(exe)); else g_engine.setMuted(exe, !g_engine.isMuted(exe));
-            }
-        }
+    case ID_QUIT: quitApp(); return;
+    default: return;
     }
     refresh();
+}
+
+// The gear menu. Owned by the flyout so opening it does not dismiss the flyout.
+void showSettingsMenu(HWND owner, POINT pt) {
+    HMENU menu = CreatePopupMenu();
+    AppendMenuW(menu, MF_STRING | (g_engine.showAll ? MF_CHECKED : 0), ID_SHOWALL, L"Show all audio apps");
+    AppendMenuW(menu, MF_STRING | (g_engine.rememberMutes ? MF_CHECKED : 0), ID_REMEMBER, L"Remember mutes");
+    AppendMenuW(menu, MF_STRING | (g_engine.soloMutesSystem ? MF_CHECKED : 0), ID_SOLOSYS, L"Solo also mutes system sounds");
+    if (!packaged()) AppendMenuW(menu, MF_STRING | (startupEnabled() ? MF_CHECKED : 0), ID_STARTUP, L"Launch at login");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING | MF_GRAYED, ID_ABOUT, (L"minSolo " MINSOLO_VERSION_WSTR));
+    AppendMenuW(menu, MF_STRING, ID_QUIT, L"Quit minSolo");
+    UINT id = (UINT)TrackPopupMenuEx(menu, TPM_LEFTALIGN | TPM_BOTTOMALIGN | TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, owner, nullptr);
+    DestroyMenu(menu);
+    if (id) settingsCommand(id);
 }
 
 // "--mute chrome.exe" etc., from the command line of this or another instance.
@@ -123,7 +100,8 @@ static bool applyCommand(const std::wstring& verb, const std::wstring& exe) {
     else if (verb == L"--solo") g_engine.setSoloed(e, true);
     else if (verb == L"--unsolo") g_engine.setSoloed(e, false);
     else if (verb == L"--clear") g_engine.clearAll();
-    else if (verb == L"--quit") { PostMessageW(g_hwnd, WM_CLOSE, 0, 0); return true; }
+    else if (verb == L"--quit") { quitApp(); return true; }
+    else if (verb == L"--show") { flyoutToggle(); return true; }
     else return false;
     logLine(L"command " + verb + L" " + e);
     refresh();
@@ -134,10 +112,9 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     switch (m) {
     case WM_TRAY:
         switch (LOWORD(l)) {
-        case WM_LBUTTONUP: case WM_CONTEXTMENU: case NIN_KEYSELECT: showMenu(); break;
+        case WM_LBUTTONUP: case WM_CONTEXTMENU: case NIN_KEYSELECT: flyoutToggle(); break;
         }
         return 0;
-    case WM_COMMAND: command(LOWORD(w)); return 0;
     case WM_TIMER: refresh(); return 0;
     case WM_REFRESH: refresh(); return 0;
     case WM_COPYDATA: {
@@ -182,6 +159,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     g_taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
     g_hwnd = CreateWindowExW(0, kClass, L"minSolo", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, inst, nullptr);
 
+    flyoutInit(inst);
     g_engine.load();
     g_watcher.start(
         [](SessionInfo& s) { g_engine.applyTo(s); PostMessageW(g_hwnd, WM_REFRESH, 0, 0); },   // worker thread: act at once

@@ -12,12 +12,13 @@ add_executable(minSolo WIN32
     src/main.cpp
     src/sessions.cpp
     src/engine.cpp
+    src/flyout.cpp
     src/log.cpp
     res/minSolo.rc)
 target_include_directories(minSolo PRIVATE src "${CMAKE_BINARY_DIR}" res)
 target_compile_definitions(minSolo PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS)
 target_compile_options(minSolo PRIVATE /W4 /EHsc /utf-8)
-target_link_libraries(minSolo PRIVATE ole32 shell32 user32 advapi32 version shlwapi)
+target_link_libraries(minSolo PRIVATE ole32 shell32 user32 gdi32 advapi32 version shlwapi dwmapi)
 set_target_properties(minSolo PROPERTIES WIN32_EXECUTABLE TRUE OUTPUT_NAME minSolo)
 # The manifest is embedded by the linker from the .rc (RT_MANIFEST); stop CMake adding a default one.
 target_link_options(minSolo PRIVATE /MANIFEST:NO)

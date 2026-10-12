@@ -138,6 +138,7 @@ std::vector<AppEntry> Engine::apps(const std::vector<SessionInfo>& sessions) con
         if (s.systemSounds || s.state == AudioSessionStateExpired) continue;
         auto& e = m[s.exe];
         e.exe = s.exe;
+        if (e.exePath.empty()) e.exePath = s.exePath;
         if (e.name.empty()) { auto it = names.find(s.exe); e.name = it != names.end() ? it->second : s.exe; }
         e.active = e.active || s.state == AudioSessionStateActive;
         e.sessions++;
