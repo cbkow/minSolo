@@ -5,6 +5,10 @@ Mute or solo individual apps' audio from the menu bar (macOS) or system tray (Wi
 - **macOS 14.2+:** Core Audio process taps. A muted app is dropped from the mix; every other app keeps its direct path to the hardware. Nothing is captured and played back.
 - **Windows 10 1809+ (planned):** WASAPI per-app audio sessions, muted inside the Windows audio engine.
 
+## Install (macOS)
+
+Download the latest `minSolo-<version>-universal.pkg` from [Releases](https://github.com/cbkow/minSolo/releases) and open it. The installer is signed and notarized; it puts minSolo.app in /Applications. On first mute, allow **System Audio Recording** when macOS asks.
+
 ## Layout
 
 | Path | What |
