@@ -1,6 +1,6 @@
 # minSolo
 
-Mute or solo any app's audio from the menu bar (macOS) or the tray (Windows). This isn't a sound mixer that captures and routes audio; instead, it uses native Core Audio/WASAPI hooks to list apps and let you mute or solo them. This adds zero latency to audio sources.
+Mute or solo any app's audio from the menu bar (macOS) or the tray (Windows). This isn't a sound mixer that captures and routes audio; instead, it uses native Core Audio/WASAPI hooks to mute or solo apps with audio outputs. It adds no latency to audio, and video/audio sync is preserved. 
 
 - **macOS 14.2 or later** (Apple silicon and Intel): Core Audio process
   taps. The first mute asks for *System Audio Recording* permission, which
