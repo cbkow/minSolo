@@ -1,0 +1,34 @@
+# Build artifacts
+build*/
+.build/
+dist/
+*.app/
+
+# Internal planning + working notes — kept on disk, not part of the public repo
+# (same convention as ufb /plans/ and QCView-Player /ideas/).
+/plans/
+private/
+
+# Local Claude Code / agent state
+.claude/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*~
+.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Local config
+.env
+.env.local
+
+# Scratch / logs
+*.log
+TEMP/
