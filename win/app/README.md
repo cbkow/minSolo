@@ -47,7 +47,10 @@ minSolo.exe --mute chrome.exe | --unmute chrome.exe | --solo chrome.exe | --unso
 - `sessions.cpp`: enumerates every active render endpoint and its sessions (`IAudioSessionManager2`),
   groups by exe basename, and registers `IAudioSessionNotification` per endpoint (new sessions are
   muted at once when a mute or solo applies) plus `IMMNotificationClient` (device changes trigger a
-  rescan). COM runs in the MTA, as the notification API requires.
+  rescan). COM runs in the MTA, as the notification API requires. The notification callbacks only
+  post to the UI thread, which does every audio-API call: calling back into the API, or releasing
+  the last reference to one of its objects, from inside a notification deadlocks the process (the
+  0.1.0 overnight tray freeze).
 - `engine.cpp`: the muted/soloed sets and the policy. minSolo only ever unmutes sessions it muted;
   what the user mutes in the Volume Mixer is left alone. Windows persists per-app mute across process
   restarts, so the exes minSolo has touched are written to `settings.ini` and a later launch unmutes

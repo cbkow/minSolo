@@ -131,14 +131,20 @@ struct SessionWatcher::Impl : IMMNotificationClient {
     }
     STDMETHODIMP OnPropertyValueChanged(LPCWSTR, const PROPERTYKEY) override { return S_OK; }
 
+    // Notification thread: keep the control alive and hand it over. No queries, no releases here.
     void sessionCreated(IAudioSessionControl* raw, const std::wstring& device) {
-        SessionInfo s;
-        if (!wrap(raw, device, s)) return;
-        {
-            std::lock_guard<std::mutex> lk(mu);
-            if (!seenInstances.insert(s.instanceID).second) return;   // fires twice per session sometimes
-        }
-        if (onNew) onNew(s);
+        if (!onNew) return;
+        auto* n = new NewSession;
+        raw->AddRef(); n->raw.p = raw;
+        n->device = device;
+        onNew(n);
+    }
+
+    bool adopt(NewSession* n, SessionInfo& out) {
+        std::unique_ptr<NewSession> own(n);
+        if (!wrap(n->raw.p, n->device, out)) return false;
+        std::lock_guard<std::mutex> lk(mu);
+        return seenInstances.insert(out.instanceID).second;   // fires twice per session sometimes
     }
 
     std::wstring deviceName(IMMDevice* dev) {
@@ -223,4 +229,8 @@ void SessionWatcher::stop() {
 }
 
 void SessionWatcher::rescanEndpoints() { if (impl_) impl_->registerManagers(); }
+bool SessionWatcher::adopt(NewSession* n, SessionInfo& out) {
+    if (!impl_) { delete n; return false; }
+    return impl_->adopt(n, out);
+}
 std::vector<SessionInfo> SessionWatcher::snapshot() { return impl_ ? impl_->snapshot() : std::vector<SessionInfo>{}; }

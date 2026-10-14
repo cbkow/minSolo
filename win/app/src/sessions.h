@@ -35,17 +35,30 @@ struct SessionInfo {
     bool setMute(bool on);      // tagged with minSolo's event context
 };
 
+/// A session reported by OnSessionCreated, carried to the UI thread untouched.
+struct NewSession {
+    Com<IAudioSessionControl> raw;
+    std::wstring device;
+};
+
 /// Enumerates sessions and watches for new sessions and endpoint changes.
-/// Callbacks arrive on COM worker threads; the caller marshals to its UI thread.
+///
+/// Threading rule: the callbacks run on the audio service's notification threads and must do
+/// nothing but hand off to the UI thread (PostMessage). Calling back into the audio API from a
+/// notification, or dropping the last reference to one of its objects there, deadlocks:
+/// releasing an IAudioSessionManager2 waits for every in-flight notification to return,
+/// including the one doing the releasing. That froze the tray overnight on 2026-10-13 after a
+/// burst of device state changes (rescan inside OnDeviceStateChanged).
 class SessionWatcher {
 public:
-    using NewSessionFn = std::function<void(SessionInfo&)>;
-    using EndpointsChangedFn = std::function<void()>;
+    using NewSessionFn = std::function<void(NewSession*)>;   // notification thread; post it, nothing else. Ownership passes to the callee.
+    using EndpointsChangedFn = std::function<void()>;        // notification thread; post, do not touch the audio API
 
     bool start(NewSessionFn onNew, EndpointsChangedFn onEndpoints);
     void stop();
     std::vector<SessionInfo> snapshot();   // fresh enumeration of every active render endpoint
-    void rescanEndpoints();                // re-register session notifications after device changes
+    void rescanEndpoints();                // re-register session notifications after device changes (UI thread)
+    bool adopt(NewSession* n, SessionInfo& out);   // UI thread: resolve a posted session and free it; false if already known
 
     static const GUID& eventContext();
     static std::wstring friendlyName(const std::wstring& exe, const std::wstring& exePath);  // FileDescription or exe stem

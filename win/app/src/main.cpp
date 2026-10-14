@@ -20,8 +20,10 @@
 
 static const wchar_t* kClass = L"minSoloTray";
 static const UINT WM_TRAY = WM_APP + 1;
-static const UINT WM_REFRESH = WM_APP + 2;     // endpoints changed / new session: refresh on the UI thread
-static const UINT kTimer = 1;
+static const UINT WM_REFRESH = WM_APP + 2;     // refresh on the UI thread
+static const UINT WM_NEWSESSION = WM_APP + 3;  // lParam: NewSession* from the notification thread; the UI thread owns it now
+static const UINT WM_ENDPOINTS = WM_APP + 4;   // a device changed state; rescan once the burst settles
+static const UINT kTimer = 1, kRescanTimer = 2;
 enum : UINT { ID_CLEAR = 1, ID_SHOWALL, ID_REMEMBER, ID_SOLOSYS, ID_STARTUP, ID_QUIT, ID_ABOUT };
 
 HWND g_hwnd;
@@ -115,8 +117,17 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         case WM_LBUTTONUP: case WM_CONTEXTMENU: case NIN_KEYSELECT: flyoutToggle(); break;
         }
         return 0;
-    case WM_TIMER: refresh(); return 0;
+    case WM_TIMER:
+        if (w == kRescanTimer) { KillTimer(h, kRescanTimer); g_watcher.rescanEndpoints(); }
+        refresh();
+        return 0;
     case WM_REFRESH: refresh(); return 0;
+    case WM_NEWSESSION: {   // act at once so a soloed/muted app does not get a blip before the 1 s timer
+        SessionInfo s;
+        if (g_watcher.adopt((NewSession*)l, s)) { g_engine.applyTo(s); refresh(); }
+        return 0;
+    }
+    case WM_ENDPOINTS: SetTimer(h, kRescanTimer, 500, nullptr); return 0;   // device changes come in bursts
     case WM_COPYDATA: {
         auto* cds = (COPYDATASTRUCT*)l;
         std::wstring s((const wchar_t*)cds->lpData, cds->cbData / sizeof(wchar_t));
@@ -161,9 +172,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
 
     flyoutInit(inst);
     g_engine.load();
+    // Both callbacks run on the audio service's notification threads: only post (see sessions.h).
     g_watcher.start(
-        [](SessionInfo& s) { g_engine.applyTo(s); PostMessageW(g_hwnd, WM_REFRESH, 0, 0); },   // worker thread: act at once
-        []() { g_watcher.rescanEndpoints(); PostMessageW(g_hwnd, WM_REFRESH, 0, 0); });
+        [](NewSession* n) { if (!PostMessageW(g_hwnd, WM_NEWSESSION, 0, (LPARAM)n)) delete n; },
+        []() { PostMessageW(g_hwnd, WM_ENDPOINTS, 0, 0); });
     {
         auto sessions = g_watcher.snapshot();
         g_engine.recoverAfterCrash(sessions);

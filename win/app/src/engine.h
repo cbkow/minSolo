@@ -46,7 +46,7 @@ private:
     bool shouldMute(const SessionInfo& s) const;
     void applyLocked(SessionInfo& s);
     void saveLocked();
-    mutable std::recursive_mutex mu_;   // applyTo runs on COM worker threads
+    mutable std::recursive_mutex mu_;   // everything runs on the UI thread now; kept so a stray caller stays safe
     bool dirty_ = false;                // touched_ changed since the last save
     std::set<std::wstring> touched_;   // exes minSolo has muted (Windows remembers per-app mute; see recoverAfterCrash)
     std::set<std::wstring> ours_;      // session instance IDs minSolo muted in this run
