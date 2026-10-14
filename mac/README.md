@@ -33,8 +33,8 @@ rendered from `../assets/icons/minsoloMAC.svg` by `tools/make-icns.swift`.
 ## Release
 
 ```bash
-VERSION=0.1.0 ./packaging/build-pkg.sh --notarize
-# → ../dist/minSolo-0.1.0-universal.pkg
+VERSION=0.1.1 ./packaging/build-pkg.sh --notarize
+# → ../dist/minSolo-0.1.1-universal.pkg
 ```
 
 The same flow as the sister repos: a universal build, re-signed with

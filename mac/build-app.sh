@@ -2,11 +2,11 @@
 # Build minSolo, wrap it into minSolo.app, sign with Developer ID (hardened runtime).
 #   ./build-app.sh            → build/minSolo.app
 #   ./build-app.sh --run      → also (re)launch it
-#   VERSION=0.1.0 ./build-app.sh
+#   VERSION=0.1.1 ./build-app.sh
 #   UNIVERSAL=1 ./build-app.sh   → arm64 + x86_64 (what build-pkg.sh uses)
 set -euo pipefail
 cd "$(dirname "$0")"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.1.1}"
 APP=build/minSolo.app
 
 if [[ "${UNIVERSAL:-0}" == 1 ]]; then
