@@ -18,10 +18,11 @@ the menu bar. Allow **System Audio Recording** when asked.
 
 ## Install (Windows)
 
-Run `minSolo-<version>-Setup-x64.exe` from [Releases](../../releases/latest).
-It installs one exe under `Program Files\minSolo`, with an optional "start
-when you sign in" task, and the mark appears in the tray. The installer is
-not code-signed yet, so SmartScreen asks once: **More info → Run anyway**.
+Install **minSolo** from the Microsoft Store; the Store keeps it updated.
+The mark appears in the tray, and minSolo starts at sign-in (switch that
+off under the gear: **Launch at login**). Coming from the 0.1.x installer?
+Quit minSolo and uninstall it in Settings → Apps first; your settings carry
+over.
 
 ## Good to know
 
@@ -39,7 +40,7 @@ not code-signed yet, so SmartScreen asks once: **More info → Run anyway**.
 
 - macOS: [`mac/README.md`](mac/README.md) (Swift Package, signed pkg).
 - Windows: [`win/app/README.md`](win/app/README.md) (C++/Win32, CMake,
-  Inno Setup and MSIX).
+  the Store MSIX: [`win/app/msix/README.md`](win/app/msix/README.md)).
 - `spike/` and `win/spike/` are the command-line probes that settled the
   platform questions; their READMEs hold the findings.
 

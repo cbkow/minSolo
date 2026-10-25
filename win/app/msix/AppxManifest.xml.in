@@ -46,10 +46,10 @@
       </uap:VisualElements>
 
       <Extensions>
-        <!-- Launch at login: a startup task the user enables in Settings > Apps > Startup.
-             Startup tasks carry no arguments, so the app starts the same way as from the Start menu. -->
+        <!-- Launch at login: on after the first launch; the gear menu's "Launch at login" toggles it (src/startup.cpp),
+             as do Settings > Apps > Startup and Task Manager. No arguments: it starts like a Start-menu launch. -->
         <desktop:Extension Category="windows.startupTask" Executable="minSolo.exe" EntryPoint="Windows.FullTrustApplication">
-          <desktop:StartupTask TaskId="minSoloStartup" Enabled="false" DisplayName="minSolo" />
+          <desktop:StartupTask TaskId="minSoloStartup" Enabled="true" DisplayName="minSolo" />
         </desktop:Extension>
 
         <!-- Execution alias: "minSolo" with a mute/solo switch from any terminal reaches the running instance. -->

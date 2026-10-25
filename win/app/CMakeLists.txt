@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
-project(minSolo VERSION 0.1.1 LANGUAGES CXX)
+project(minSolo VERSION 0.1.2 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)   # C++/WinRT (startup.cpp) needs C++20 coroutines
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Static CRT: one exe with no VC++ redistributable to install (Inno) or bundle (MSIX).
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -14,11 +14,12 @@ add_executable(minSolo WIN32
     src/engine.cpp
     src/flyout.cpp
     src/log.cpp
+    src/startup.cpp
     res/minSolo.rc)
 target_include_directories(minSolo PRIVATE src "${CMAKE_BINARY_DIR}" res)
 target_compile_definitions(minSolo PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX _CRT_SECURE_NO_WARNINGS)
 target_compile_options(minSolo PRIVATE /W4 /EHsc /utf-8)
-target_link_libraries(minSolo PRIVATE ole32 shell32 user32 gdi32 advapi32 version shlwapi dwmapi)
+target_link_libraries(minSolo PRIVATE ole32 shell32 user32 gdi32 advapi32 version shlwapi dwmapi windowsapp)
 set_target_properties(minSolo PROPERTIES WIN32_EXECUTABLE TRUE OUTPUT_NAME minSolo)
 # The manifest is embedded by the linker from the .rc (RT_MANIFEST); stop CMake adding a default one.
 target_link_options(minSolo PRIVATE /MANIFEST:NO)

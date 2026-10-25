@@ -44,7 +44,18 @@ $staging = Join-Path $PSScriptRoot "staging"
 if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
 New-Item -ItemType Directory -Path $staging | Out-Null
 Copy-Item -Path $exe -Destination $staging
-Copy-Item -Path $ManifestPath -Destination (Join-Path $staging "AppxManifest.xml")
+# The template's comments are notes for us; the uploaded manifest carries none (minRender stripped its once they
+# named a capability certification had denied). Guard the capabilities here rather than in Partner Center: exactly
+# runFullTrust, and nothing that turns off file-system / registry virtualization (minRender 0.5.6.0 was denied for it).
+$manifest = [regex]::Replace((Get-Content -Raw -Encoding UTF8 -Path $ManifestPath), '(?s)\s*<!--.*?-->', '')
+[xml]$mx = $manifest
+$caps = @($mx.Package.Capabilities.ChildNodes | ForEach-Object { $_.GetAttribute("Name") } | Sort-Object)
+if (($caps -join ',') -ne 'runFullTrust') { throw "Manifest capabilities are [$($caps -join ', ')], expected [runFullTrust]." }
+if ($manifest -match 'unvirtualizedResources|FileSystemWriteVirtualization|RegistryWriteVirtualization') {
+    throw "Manifest disables virtualization - certification denies that."
+}
+Write-Host "Capabilities: $($caps -join ', ')"
+Set-Content -Path (Join-Path $staging "AppxManifest.xml") -Value $manifest -Encoding UTF8
 Copy-Item -Recurse -Path $ImagesDir -Destination (Join-Path $staging "images")
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
 foreach ($leaf in @("LICENSE", "PRIVACY_POLICY.md")) {

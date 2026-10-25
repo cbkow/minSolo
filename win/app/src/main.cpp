@@ -6,7 +6,6 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <shlwapi.h>
-#include <appmodel.h>
 #include <string>
 #include <vector>
 #include <windowsx.h>
@@ -16,6 +15,7 @@
 #include "log.h"
 #include "resource.h"
 #include "sessions.h"
+#include "startup.h"
 #include "version.h"
 
 static const wchar_t* kClass = L"minSoloTray";
@@ -24,7 +24,7 @@ static const UINT WM_REFRESH = WM_APP + 2;     // refresh on the UI thread
 static const UINT WM_NEWSESSION = WM_APP + 3;  // lParam: NewSession* from the notification thread; the UI thread owns it now
 static const UINT WM_ENDPOINTS = WM_APP + 4;   // a device changed state; rescan once the burst settles
 static const UINT kTimer = 1, kRescanTimer = 2;
-enum : UINT { ID_CLEAR = 1, ID_SHOWALL, ID_REMEMBER, ID_SOLOSYS, ID_STARTUP, ID_QUIT, ID_ABOUT };
+enum : UINT { ID_CLEAR = 1, ID_SHOWALL, ID_REMEMBER, ID_SOLOSYS, ID_STARTUP, ID_STARTUP_SETTINGS, ID_QUIT, ID_ABOUT };
 
 HWND g_hwnd;
 SessionWatcher g_watcher;
@@ -34,24 +34,6 @@ static UINT g_taskbarCreated;
 void refresh() {
     auto sessions = g_watcher.snapshot();
     g_engine.apply(sessions);
-}
-
-static bool packaged() {
-    // Packaged (MSIX) processes have a package identity; GetCurrentPackageFullName returns APPMODEL_ERROR_NO_PACKAGE otherwise.
-    UINT32 n = 0;
-    return GetCurrentPackageFullName(&n, nullptr) != APPMODEL_ERROR_NO_PACKAGE;
-}
-
-// Launch at login, unpackaged: HKCU\...\Run. Packaged: the MSIX startupTask, toggled in Settings > Apps > Startup.
-static bool startupEnabled() {
-    HKEY k; if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_READ, &k) != ERROR_SUCCESS) return false;
-    DWORD type = 0, size = 0; bool on = RegQueryValueExW(k, L"minSolo", nullptr, &type, nullptr, &size) == ERROR_SUCCESS; RegCloseKey(k); return on;
-}
-static void setStartup(bool on) {
-    HKEY k; if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, nullptr, 0, KEY_WRITE, nullptr, &k, nullptr) != ERROR_SUCCESS) return;
-    if (on) { wchar_t path[MAX_PATH]; GetModuleFileNameW(nullptr, path, MAX_PATH); std::wstring v = L"\"" + std::wstring(path) + L"\""; RegSetValueExW(k, L"minSolo", 0, REG_SZ, (const BYTE*)v.c_str(), (DWORD)((v.size() + 1) * sizeof(wchar_t))); }
-    else RegDeleteValueW(k, L"minSolo");
-    RegCloseKey(k);
 }
 
 static void trayAdd() {
@@ -73,6 +55,7 @@ static void settingsCommand(UINT id) {
     case ID_REMEMBER: g_engine.rememberMutes = !g_engine.rememberMutes; g_engine.save(); break;
     case ID_SOLOSYS: g_engine.soloMutesSystem = !g_engine.soloMutesSystem; g_engine.save(); break;
     case ID_STARTUP: setStartup(!startupEnabled()); break;
+    case ID_STARTUP_SETTINGS: openStartupSettings(); return;
     case ID_QUIT: quitApp(); return;
     default: return;
     }
@@ -85,7 +68,10 @@ void showSettingsMenu(HWND owner, POINT pt) {
     AppendMenuW(menu, MF_STRING | (g_engine.showAll ? MF_CHECKED : 0), ID_SHOWALL, L"Show all audio apps");
     AppendMenuW(menu, MF_STRING | (g_engine.rememberMutes ? MF_CHECKED : 0), ID_REMEMBER, L"Remember mutes");
     AppendMenuW(menu, MF_STRING | (g_engine.soloMutesSystem ? MF_CHECKED : 0), ID_SOLOSYS, L"Solo also mutes system sounds");
-    if (!packaged()) AppendMenuW(menu, MF_STRING | (startupEnabled() ? MF_CHECKED : 0), ID_STARTUP, L"Launch at login");
+    // A startup task switched off in Settings or Task Manager can only be switched back on there.
+    bool login = startupEnabled();
+    if (startupBlocked()) AppendMenuW(menu, MF_STRING | (login ? MF_CHECKED : 0), ID_STARTUP_SETTINGS, L"Launch at login (Settings\u2026)");
+    else AppendMenuW(menu, MF_STRING | (login ? MF_CHECKED : 0), ID_STARTUP, L"Launch at login");
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING | MF_GRAYED, ID_ABOUT, (L"minSolo " MINSOLO_VERSION_WSTR));
     AppendMenuW(menu, MF_STRING, ID_QUIT, L"Quit minSolo");
@@ -137,7 +123,15 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     }
     case WM_CLOSE: DestroyWindow(h); return 0;
     case WM_DESTROY: trayRemove(); PostQuitMessage(0); return 0;
-    case WM_ENDSESSION: if (w) { g_engine.clearAll(); refresh(); } return 0;
+    case WM_ENDSESSION:
+        // Sign-out, shutdown, or a Store update closing the app (ENDSESSION_CLOSEAPP). The process may be ended as soon
+        // as this returns, so release now; the remembered mutes stay for the next run.
+        if (w) {
+            logLine(L"session ending (" + std::wstring((l & ENDSESSION_CLOSEAPP) ? L"close-app request, e.g. a Store update" : L"sign-out or shutdown") + L")");
+            auto sessions = g_watcher.snapshot(); g_engine.releaseAll(sessions);
+            DestroyWindow(h);
+        }
+        return 0;
     default:
         if (m == g_taskbarCreated) { trayAdd(); return 0; }
     }
@@ -168,7 +162,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     WNDCLASSW wc{}; wc.lpfnWndProc = wndProc; wc.hInstance = inst; wc.lpszClassName = kClass;
     RegisterClassW(&wc);
     g_taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
-    g_hwnd = CreateWindowExW(0, kClass, L"minSolo", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, inst, nullptr);
+    // Hidden top-level, never shown: not HWND_MESSAGE, because message-only windows get no WM_ENDSESSION, which is how
+    // sign-out and Store updates close the app.
+    g_hwnd = CreateWindowExW(WS_EX_TOOLWINDOW, kClass, L"minSolo", WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, inst, nullptr);
 
     flyoutInit(inst);
     g_engine.load();
@@ -184,6 +180,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     if (!verb.empty()) applyCommand(verb, arg);
     trayAdd();
     SetTimer(g_hwnd, kTimer, 1000, nullptr);
+    // A Store update closes the app and does not start it again; this has Windows relaunch it from the new version
+    // (and after a crash). Packaged only, so a dev build never respawns itself.
+    if (packaged() && SUCCEEDED(RegisterApplicationRestart(nullptr, 0))) logLine(L"registered for restart after updates");
     logLine(L"minSolo " MINSOLO_VERSION_WSTR L" started" + std::wstring(packaged() ? L" (packaged)" : L""));
 
     MSG msg;

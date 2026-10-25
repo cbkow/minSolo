@@ -19,13 +19,13 @@ minSolo mutes and solos other apps' audio. On macOS it does this with Core Audio
 minSolo stores the following data locally on your device:
 
 - **macOS:** `~/Library/Preferences/com.bialkowski.minsolo.plist`
-- **Windows:** `%LOCALAPPDATA%\minSolo\`
+- **Windows:** `%LOCALAPPDATA%\minSolo\` (a Microsoft Store install keeps it in the app's private storage, which uninstalling removes)
 
 Stored data is limited to application settings, such as which apps were muted. This data never leaves your device.
 
 ## Network Activity
 
-minSolo makes no network connections.
+minSolo makes no network connections. On Windows, the Microsoft Store installs and updates minSolo; the app itself makes no update requests, and the Store's own handling is covered by Microsoft's privacy statement.
 
 ## Third-Party Services
 
