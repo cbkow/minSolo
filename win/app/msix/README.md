@@ -18,7 +18,9 @@ win/app/msix/
 
 Identity (Partner Center → Product management → Product identity), cache variables in `../CMakeLists.txt`:
 `cbkow.minSolo` / `CN=C64A1D41-EFAA-4EED-AE81-0C074867D4E9` / `cbkow`, the same publisher as the sister apps
-(ingestion rejects a mismatch). Package family name `cbkow.minSolo_k3nw8mfd599r4`. The MSIX version is
+(ingestion rejects a mismatch). Package family name `cbkow.minSolo_k3nw8mfd599r4`, Store ID **9NBDB6R9RZJ4**
+(<https://apps.microsoft.com/detail/9NBDB6R9RZJ4> once published; headless install:
+`winget install --id 9NBDB6R9RZJ4 --source msstore --accept-package-agreements`). The MSIX version is
 `PROJECT_VERSION` + `.0`.
 
 ## Build

@@ -18,7 +18,9 @@ the menu bar. Allow **System Audio Recording** when asked.
 
 ## Install (Windows)
 
-Install **minSolo** from the Microsoft Store; the Store keeps it updated.
+Install [**minSolo** from the Microsoft Store](https://apps.microsoft.com/detail/9NBDB6R9RZJ4)
+(or `winget install --id 9NBDB6R9RZJ4 --source msstore`); the Store keeps it
+updated.
 The mark appears in the tray, and minSolo starts at sign-in (switch that
 off under the gear: **Launch at login**). Coming from the 0.1.x installer?
 Quit minSolo and uninstall it in Settings → Apps first; your settings carry
